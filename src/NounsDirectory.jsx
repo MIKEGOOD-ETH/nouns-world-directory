@@ -1,10 +1,13 @@
 // Nouns.world — Filterable Directory (Google Sheets)
-// v17:
-// - Static, FIXED gutters (2 left sequence, 3 right sequence). They do not scroll with the page.
-// - Visible on mobile now, and they never extend the page height.
-// - Always behind the UI (cards/chips are opaque and above).
-// - Slight horizontal jitter and size variance; deterministic seed so layout is stable.
-// - Keeps: black header, border-2 chips, black logo fallback, mobile dropdown filters, tags, disclaimer.
+// v18:
+// - Fixed, non-scrolling background art placed at explicit viewport spots (desktop & mobile sets).
+// - Always behind header + content; does not extend page height.
+// - Simple config so you can nudge each item (vw/vh coordinates + px size).
+//
+// Assets expected in /public/images:
+//   resource-gif-1.gif ... resource-gif-5.gif
+//
+// Keeps: black header, border-2 chips, black logo fallback, mobile dropdown filters, tags, disclaimer.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -25,23 +28,27 @@ const CONFIG = {
   site: {
     openLinksInNewTab: true,
     stickyHeader: false,
-    fixedGutters: {
-      // Viewport-relative layout (position: fixed)
-      yPercentsLeft:  [10, 28, 46, 64, 82],   // % down the viewport
-      yPercentsRight: [16, 34, 52, 70, 88],
-      sizeMin: 84,       // px
-      sizeMax: 132,      // px
-      jitterX: 18,       // px horizontal jitter within gutter
-      opacity: 0.18,     // subtle
-      seed: 777,         // deterministic stable layout
-      minGutterPx: 48,   // if gutter too thin, hug the edge (even offscreen slightly)
-      marginX: 12        // padding from edges
+    art: {
+      desktop: [
+        // Approximate to your red marks; tweak left/top/size as you like.
+        { file: "/images/resource-gif-1.gif", leftVW: 3,  topVH: 18, size: 220 },
+        { file: "/images/resource-gif-2.gif", rightVW: 4, topVH: 14, size: 170 },
+        { file: "/images/resource-gif-3.gif", leftVW: 6,  topVH: 68, size: 200 },
+        { file: "/images/resource-gif-4.gif", rightVW: 6, topVH: 60, size: 220 },
+        { file: "/images/resource-gif-5.gif", rightVW: 9, topVH: 36, size: 200 },
+        { file: "/images/resource-gif-2.gif", leftVW: 10, topVH: 92, size: 180 },
+        { file: "/images/resource-gif-3.gif", rightVW: 12, topVH: 88, size: 180 }
+      ],
+      mobile: [
+        // Smaller, fewer, still fixed & behind
+        { file: "/images/resource-gif-1.gif", leftVW: 2,  topVH: 22, size: 120 },
+        { file: "/images/resource-gif-3.gif", rightVW: 2, topVH: 38, size: 120 },
+        { file: "/images/resource-gif-4.gif", rightVW: 4, topVH: 72, size: 140 }
+      ],
+      breakpoint: 1024 // px: use 'desktop' set when viewport >= breakpoint
     }
   }
 };
-
-const RES_LEFT = ["/images/resource-gif-1.gif", "/images/resource-gif-2.gif"];
-const RES_RIGHT = ["/images/resource-gif-3.gif", "/images/resource-gif-4.gif", "/images/resource-gif-5.gif"];
 
 const slug = (s) =>
   (s || "").toString().trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
@@ -74,105 +81,44 @@ function resolveColumns(fields, candidatesMap) {
   };
 }
 
-// Seeded PRNG
-function mulberry32(a) {
-  return function() {
-    let t = (a += 0x6D2B79F5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// Fixed-position gutters (do not scroll)
-function FixedGutterArt({ containerRef }) {
-  const [left, setLeft] = useState([]);
-  const [right, setRight] = useState([]);
+/** Fixed art positioned by viewport (doesn't scroll) */
+function FixedViewportArt() {
+  const [items, setItems] = useState([]);
 
   useEffect(() => {
-    function regen() {
-      const el = containerRef.current;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      if (!el || !vw || !vh) return;
+    const build = () => {
+      const set = window.innerWidth >= CONFIG.site.art.breakpoint ? CONFIG.site.art.desktop : CONFIG.site.art.mobile;
+      setItems(set);
+    };
+    build();
+    window.addEventListener("resize", build);
+    return () => window.removeEventListener("resize", build);
+  }, []);
 
-      const {
-        yPercentsLeft, yPercentsRight, sizeMin, sizeMax,
-        jitterX, opacity, seed, minGutterPx, marginX
-      } = CONFIG.site.fixedGutters;
-
-      const rect = el.getBoundingClientRect();
-      const containerWidth = rect.width;
-      const gutterWidth = Math.max(0, (vw - containerWidth) / 2);
-
-      // Left gutter X bounds
-      let leftMinX = marginX;
-      let leftMaxX = gutterWidth - marginX;
-      // Right gutter X bounds
-      let rightMinX = vw - gutterWidth + marginX;
-      let rightMaxX = vw - marginX;
-
-      // If gutters are too thin, allow hugging the edges (even offscreen by a bit)
-      if (gutterWidth < minGutterPx) {
-        leftMinX = -sizeMax * 0.35;
-        leftMaxX = Math.max(marginX, gutterWidth) + sizeMax * 0.15;
-        rightMinX = vw - Math.max(marginX, gutterWidth) - sizeMax * 0.15;
-        rightMaxX = vw + sizeMax * 0.35;
-      }
-
-      const randL = mulberry32(seed + Math.floor(vw) + 101);
-      const randR = mulberry32(seed + Math.floor(vw) + 331);
-
-      const L = yPercentsLeft.map((p, i) => {
-        const size = Math.floor(sizeMin + randL() * (sizeMax - sizeMin));
-        const baseX = leftMinX + randL() * (leftMaxX - leftMinX);
-        const jitter = (randL() - 0.5) * jitterX * 2;
-        const x = Math.max(Math.min(baseX + jitter, leftMaxX - size / 4), leftMinX - size / 4);
-        const y = Math.round((p / 100) * vh - size / 2);
-        const file = RES_LEFT[i % RES_LEFT.length];
-        return { x, y, size, file, opacity };
-      });
-
-      const R = yPercentsRight.map((p, i) => {
-        const size = Math.floor(sizeMin + randR() * (sizeMax - sizeMin));
-        const baseX = rightMinX + randR() * (rightMaxX - rightMinX);
-        const jitter = (randR() - 0.5) * jitterX * 2;
-        const x = Math.max(Math.min(baseX + jitter, rightMaxX - size / 4), rightMinX - size / 4);
-        const y = Math.round((p / 100) * vh - size / 2);
-        const file = RES_RIGHT[i % RES_RIGHT.length];
-        return { x, y, size, file, opacity };
-      });
-
-      setLeft(L);
-      setRight(R);
-    }
-    regen();
-    window.addEventListener("resize", regen);
-    return () => window.removeEventListener("resize", regen);
-  }, [containerRef]);
+  if (!items.length) return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
-      {left.map((s, i) => (
-        <img
-          key={"lfx" + i}
-          src={s.file}
-          alt=""
-          loading="lazy"
-          className="absolute select-none"
-          style={{ left: s.x + "px", top: s.y + "px", width: s.size + "px", height: s.size + "px", opacity: s.opacity }}
-        />
-      ))}
-      {right.map((s, i) => (
-        <img
-          key={"rfx" + i}
-          src={s.file}
-          alt=""
-          loading="lazy"
-          className="absolute select-none"
-          style={{ left: s.x + "px", top: s.y + "px", width: s.size + "px", height: s.size + "px", opacity: s.opacity }}
-        />
-      ))}
+      {items.map((it, i) => {
+        const style = {
+          width: it.size + "px",
+          height: it.size + "px",
+          top: it.topVH != null ? `calc(${it.topVH}vh - ${it.size/2}px)` : undefined,
+          left: it.leftVW != null ? `calc(${it.leftVW}vw - ${it.size/2}px)` : undefined,
+          right: it.rightVW != null ? `calc(${it.rightVW}vw - ${it.size/2}px)` : undefined,
+          opacity: 0.16
+        };
+        return (
+          <img
+            key={i}
+            src={it.file}
+            alt=""
+            loading="lazy"
+            className="absolute select-none"
+            style={style}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -225,7 +171,7 @@ function Disclaimer() {
 function Header() {
   const stick = CONFIG.site.stickyHeader;
   return (
-    <div className={`${stick ? "sticky top-0" : ""} z-20 w-full bg-black text-white`}>
+    <div className={`${stick ? "sticky top-0" : ""} z-30 w-full bg-black text-white`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center overflow-hidden">
@@ -416,15 +362,15 @@ export default function NounsDirectory() {
 
   return (
     <>
-      {/* Fixed gutters behind everything */}
-      <FixedGutterArt containerRef={containerRef} />
+      {/* Fixed viewport art at the very back */}
+      <FixedViewportArt />
 
-      {/* Full-width header (on top) */}
+      {/* Header on top of art */}
       <Header />
 
       {/* Centered content */}
       <div ref={containerRef} className="relative mx-auto max-w-6xl px-4">
-        {/* Opaque content above fixed art */}
+        {/* Opaque content above */}
         <div className="relative z-10 pb-24">
           {/* Intro paragraph */}
           <p className="mx-auto mt-5 max-w-3xl text-center text-base md:text-xl leading-relaxed text-neutral-800">
