@@ -2,9 +2,10 @@
 
 Filterable directory pulling live data from a published Google Sheet.
 
-## v13
-- **Scatter background art**: resource GIFs are placed randomly **throughout** the centered content area (behind categories & cards). As the page narrows, images naturally hide under solid-white UI.
-- Kept: full-width black header (v12), border-2 chips, black logo fallback, mobile dropdown filters.
+## v14
+- **Static scattered background logos** (no animation), spaced using jittered grid + min-distance checks for an aesthetic layout similar in spirit to Uniswap's token background.
+- Sits *behind* opaque UI so logos only show in the whitespace.
+- Keeps: full-width black header, border-2 chips, black logo fallback, mobile dropdown filters, tags under description, disclaimer.
 
 ### Add your GIFs
 Put these in `public/images/`:
@@ -17,8 +18,14 @@ resource-gif-5.gif
 ```
 
 ### Tuning
-- Density: tweak `CONFIG.site.scatterDensity` (default 0.000009). Higher = more images.
-- Max/min count: inside `BackgroundScatterArt` (clamped 8–45).
+Update `CONFIG.site.scatter` in `src/NounsDirectory.jsx`:
+- `baseCell`: spacing scale (bigger = fewer items)
+- `sizeMin` / `sizeMax`: logo size range
+- `minGap`: minimum distance between centers
+- `chancePerCell`: probability per grid cell
+- `minCount` / `maxCount`: clamp the total
+- `opacity`: logo opacity
+- `seed`: deterministic layout
 
 ## Deploy
 - Build: `npm run build`

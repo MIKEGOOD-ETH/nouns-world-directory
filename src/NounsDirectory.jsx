@@ -1,5 +1,9 @@
 // Nouns.world — Filterable Directory (Google Sheets)
-// v13: scatter background art behind solid UI; black header; chips border-2; black logo fallback; mobile filters.
+// v14:
+// - Static, nicely spaced background logos (no animation), inspired by Uniswap spacing.
+//   Uses seeded jittered grid with distance checks (blue-noise-ish) so placement looks intentional.
+//   Lives behind the solid UI; disappears whenever covered by chips/cards.
+// - Keeps: black full-width header, border-2 chips, black logo fallback, mobile filters, tags, disclaimer.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -20,7 +24,18 @@ const CONFIG = {
   site: {
     openLinksInNewTab: true,
     stickyHeader: false,
-    scatterDensity: 0.000009
+    scatter: {
+      // Roughly controls density/spacing of background logos
+      baseCell: 280,      // base grid cell (px)
+      sizeMin: 60,        // min logo size
+      sizeMax: 160,       // max logo size
+      minGap: 160,        // min spacing between centers (px)
+      chancePerCell: 0.65,// probability of placing in cell
+      maxCount: 50,       // clamp
+      minCount: 14,       // clamp
+      opacity: 0.14,      // subtle
+      seed: 42            // deterministic per session
+    }
   }
 };
 
@@ -61,6 +76,97 @@ function resolveColumns(fields, candidatesMap) {
     logoUrl: pick(candidatesMap.logoUrl),
     image: pick(candidatesMap.image)
   };
+}
+
+// Small seeded PRNG for deterministic layout
+function mulberry32(a) {
+  return function() {
+    let t = (a += 0x6D2B79F5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function BackgroundStaticScatter({ containerRef }) {
+  const [spots, setSpots] = useState([]);
+
+  useEffect(() => {
+    function regenerate() {
+      const el = containerRef.current;
+      if (!el) return;
+      const { baseCell, sizeMin, sizeMax, minGap, chancePerCell, maxCount, minCount, opacity, seed } = CONFIG.site.scatter;
+
+      const width = el.clientWidth;
+      const height = el.scrollHeight; // cover entire content column
+      const cols = Math.max(2, Math.floor(width / baseCell));
+      const rows = Math.max(4, Math.floor(height / baseCell));
+      const rand = mulberry32(seed + Math.floor(width) + Math.floor(height));
+
+      const items = [];
+      // jittered grid with distance checks
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (rand() > chancePerCell) continue;
+          const cellW = width / cols;
+          const cellH = height / rows;
+          const cx = c * cellW;
+          const cy = r * cellH;
+          // jitter around center of the cell
+          const jx = (rand() - 0.5) * cellW * 0.6;
+          const jy = (rand() - 0.5) * cellH * 0.6;
+          const x = Math.max(0, Math.min(width, cx + cellW / 2 + jx));
+          const y = Math.max(0, Math.min(height, cy + cellH / 2 + jy));
+          const size = Math.floor(sizeMin + rand() * (sizeMax - sizeMin));
+          const file = RESOURCE_FILES[Math.floor(rand() * RESOURCE_FILES.length)];
+          // enforce min distance
+          const ok = items.every((it) => {
+            const dx = it.left - x;
+            const dy = it.top - y;
+            const dist = Math.hypot(dx, dy);
+            return dist > minGap;
+          });
+          if (!ok) continue;
+          items.push({ left: x - size / 2, top: y - size / 2, size, file, opacity });
+          if (items.length >= maxCount) break;
+        }
+      }
+      // Clamp
+      if (items.length < minCount) {
+        // fill with additional points by relaxing distance slightly
+        const extra = minCount - items.length;
+        let attempts = 0;
+        while (items.length < minCount && attempts < 2000) {
+          attempts++;
+          const x = rand() * width;
+          const y = rand() * height;
+          const size = Math.floor(sizeMin + rand() * (sizeMax - sizeMin));
+          const file = RESOURCE_FILES[Math.floor(rand() * RESOURCE_FILES.length)];
+          const ok = items.every((it) => Math.hypot(it.left + it.size/2 - x, it.top + it.size/2 - y) > minGap * 0.75);
+          if (ok) items.push({ left: x - size / 2, top: y - size / 2, size, file, opacity });
+        }
+      }
+      setSpots(items);
+    }
+    regenerate();
+    window.addEventListener("resize", regenerate);
+    return () => window.removeEventListener("resize", regenerate);
+  }, [containerRef]);
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      {spots.map((s, i) => (
+        <img
+          key={i}
+          src={s.file}
+          alt=""
+          loading="lazy"
+          className="absolute select-none"
+          style={{ left: s.left + "px", top: s.top + "px", width: s.size + "px", height: s.size + "px", opacity: s.opacity }}
+        />
+      ))}
+    </div>
+  );
 }
 
 const Pill = ({ children, selected, onClick }) => (
@@ -197,49 +303,6 @@ function MobileFilters({ tags, selected, onToggle, onClear }) {
   );
 }
 
-// Scatter background art inside the centered container
-function BackgroundScatterArt({ containerRef }) {
-  const [spots, setSpots] = useState([]);
-
-  useEffect(() => {
-    function regen() {
-      const el = containerRef.current;
-      if (!el) return;
-      const width = el.clientWidth;
-      const height = el.scrollHeight; // full content height
-      const area = width * height;
-      const ideal = Math.floor(area * CONFIG.site.scatterDensity);
-      const count = Math.max(8, Math.min(45, ideal || 18));
-      const next = Array.from({ length: count }).map(() => {
-        const size = Math.floor(56 + Math.random() * 120); // 56–176px
-        const left = Math.max(0, Math.floor(Math.random() * (width - size)));
-        const top = Math.max(0, Math.floor(Math.random() * (height - size)));
-        const file = RESOURCE_FILES[Math.floor(Math.random() * RESOURCE_FILES.length)];
-        return { left, top, size, file };
-      });
-      setSpots(next);
-    }
-    regen();
-    window.addEventListener("resize", regen);
-    return () => window.removeEventListener("resize", regen);
-  }, [containerRef]);
-
-  return (
-    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-      {spots.map((s, i) => (
-        <img
-          key={i}
-          src={s.file}
-          alt=""
-          loading="lazy"
-          className="absolute opacity-20"
-          style={{ left: s.left + "px", top: s.top + "px", width: s.size + "px", height: s.size + "px" }}
-        />
-      ))}
-    </div>
-  );
-}
-
 export default function NounsDirectory() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -348,11 +411,11 @@ export default function NounsDirectory() {
       {/* Full-width header */}
       <Header />
 
-      {/* Background scatter art lives INSIDE the centered container */}
       <div ref={containerRef} className="relative mx-auto max-w-6xl px-4">
-        <BackgroundScatterArt containerRef={containerRef} />
+        {/* Static background logos behind the UI */}
+        <BackgroundStaticScatter containerRef={containerRef} />
 
-        {/* Main content is opaque and above the art */}
+        {/* Opaque content above */}
         <div className="relative z-10 pb-24">
           {/* Intro paragraph */}
           <p className="mx-auto mt-5 max-w-3xl text-center text-base md:text-xl leading-relaxed text-neutral-800">
@@ -376,7 +439,7 @@ export default function NounsDirectory() {
                 <button
                   onClick={clearFilters}
                   className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm hover:bg-neutral-50"
-                  >
+                >
                   Clear filters
                 </button>
               )}
