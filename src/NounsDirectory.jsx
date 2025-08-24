@@ -1,4 +1,4 @@
-// v21: Remove Share button; increase background art opacity slightly.
+// v22: Share button fully removed; fix JSX conditional; keep higher background art opacity.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -35,7 +35,7 @@ const CONFIG = {
         { file: "/images/resource-gif-4.gif", rightVW: 4, topVH: 72, size: 140 }
       ],
       breakpoint: 1024,
-      opacity: 0.24 // slightly more visible than before
+      opacity: 0.24
     }
   }
 };
@@ -369,7 +369,7 @@ export default function NounsDirectory() {
                 className="w-full max-w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-900 sm:w-72"
                 aria-label="Search"
               />
-              {selectedTags.length > 0 and (
+              {selectedTags.length > 0 && (
                 <button
                   onClick={clearFilters}
                   className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm hover:bg-neutral-50"
