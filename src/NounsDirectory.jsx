@@ -1,13 +1,11 @@
 // Nouns.world — Filterable Directory (Google Sheets)
-// v10:
-// 1) Side doodles float randomly in the left/right whitespace (not top/bottom edges), pulse softly;
-//    fade up on hover. Only on lg+.
-// 2) Category chips: monotone with **colored text** (chromatic) when unselected, selected = black pill.
-// 3) Card tag chips moved **under description**, above "Explore →".
-// 4) Missing logo placeholder is solid black square.
-//
-// Place accessory images under: /public/images/accessories/  (same list as before).
-// Logos: /public/logos/... or use Logo URL in the sheet.
+// v11 updates per your notes:
+// 1) Remove floating doodles; instead render 2 static images on the left gutter and 3 on the right.
+//    Filenames (transparent GIFs) expected in /public/images/: resource-gif-1.gif ... resource-gif-5.gif
+// 2) If a logo fails to load or is missing, show a solid black 30x30 square.
+// 3) Category chips: black text, thicker black stroke (border-4) around each; selected = solid black with white text.
+// 4) Intro paragraph: larger, centered, with strategic bolding for readability.
+// 5) Keep: mobile dropdown filters, tags under description, "Explore →" at bottom-right.
 
 import React, { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
@@ -26,28 +24,12 @@ const CONFIG = {
     image: ["Logo", "Image"]
   },
   site: {
-    openLinksInNewTab: true,
-    enableDoodles: true
+    openLinksInNewTab: true
   }
 };
 
-const ACCESSORY_FILES = [
-  "accessory-1-noun-2.png",
-  "accessory-1-noun.png",
-  "accessory-arrow.png",
-  "accessory-bling-rings.png",
-  "accessory-bling.png",
-  "accessory-bulb.png",
-  "accessory-carrot.png",
-  "accessory-eth.png",
-  "accessory-heart.png",
-  "accessory-infinity.png",
-  "accessory-lol.png",
-  "accessory-nil.png",
-  "accessory-rgb.png",
-  "accessory-txt.png",
-  "accessory-wet-money.png"
-];
+const STATIC_SIDE_IMAGES_LEFT = ["/images/resource-gif-1.gif", "/images/resource-gif-2.gif"];
+const STATIC_SIDE_IMAGES_RIGHT = ["/images/resource-gif-3.gif", "/images/resource-gif-4.gif", "/images/resource-gif-5.gif"];
 
 const slug = (s) =>
   (s || "").toString().trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
@@ -58,32 +40,41 @@ const parseList = (val) =>
     .map((v) => v.trim())
     .filter(Boolean);
 
-/** chromatic but tasteful text color derived from text */
-function inkFromText(text) {
-  let h = 0;
-  const s = 60; // saturation
-  const l = 40; // lightness
-  for (let i = 0; i < (text || "").length; i++) h = (h * 31 + text.charCodeAt(i)) % 360;
-  return `hsl(${h} ${s}% ${l}%)`;
+// Resolve header names case-insensitively
+function resolveColumns(fields, candidatesMap) {
+  const lowerIndex = new Map(fields.map((f) => [f.toLowerCase().trim(), f]));
+  const pick = (arr) => {
+    for (const name of arr) {
+      const found = lowerIndex.get(String(name).toLowerCase());
+      if (found) return found;
+    }
+    return null;
+  };
+  return {
+    title: pick(candidatesMap.title),
+    link: pick(candidatesMap.link),
+    description: pick(candidatesMap.description),
+    categories: pick(candidatesMap.categories),
+    mainTag: pick(candidatesMap.mainTag),
+    hiddenTags: pick(candidatesMap.hiddenTags),
+    logoUrl: pick(candidatesMap.logoUrl),
+    image: pick(candidatesMap.image)
+  };
 }
 
-const Pill = ({ children, selected, onClick }) => {
-  const color = inkFromText(children);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-2xl border px-3 py-2 text-sm transition ${
-        selected
-          ? "border-neutral-900 bg-neutral-900 text-white shadow"
-          : "border-neutral-300 bg-white hover:bg-neutral-50"
-      }`}
-      style={selected ? undefined : { color }}
-    >
-      <span className="truncate">{children}</span>
-    </button>
-  );
-};
+const Pill = ({ children, selected, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`w-full rounded-2xl border-4 px-3 py-2 text-sm transition ${
+      selected
+        ? "border-black bg-black text-white shadow"
+        : "border-black bg-white text-black hover:bg-neutral-50"
+    }`}
+  >
+    <span className="truncate">{children}</span>
+  </button>
+);
 
 function Disclaimer() {
   const [open, setOpen] = useState(false);
@@ -142,28 +133,6 @@ function Header() {
       </div>
     </div>
   );
-}
-
-// Resolve header names case-insensitively
-function resolveColumns(fields, candidatesMap) {
-  const lowerIndex = new Map(fields.map((f) => [f.toLowerCase().trim(), f]));
-  const pick = (arr) => {
-    for (const name of arr) {
-      const found = lowerIndex.get(String(name).toLowerCase());
-      if (found) return found;
-    }
-    return null;
-  };
-  return {
-    title: pick(candidatesMap.title),
-    link: pick(candidatesMap.link),
-    description: pick(candidatesMap.description),
-    categories: pick(candidatesMap.categories),
-    mainTag: pick(candidatesMap.mainTag),
-    hiddenTags: pick(candidatesMap.hiddenTags),
-    logoUrl: pick(candidatesMap.logoUrl),
-    image: pick(candidatesMap.image)
-  };
 }
 
 function MobileFilters({ tags, selected, onToggle, onClear }) {
@@ -226,67 +195,20 @@ function MobileFilters({ tags, selected, onToggle, onClear }) {
   );
 }
 
-function SideDoodles() {
-  if (!CONFIG.site.enableDoodles) return null;
-
-  // Build randomized layout once
-  const spots = React.useMemo(() => {
-    const count = Math.min(12, ACCESSORY_FILES.length);
-    const arr = [];
-    for (let i = 0; i < count; i++) {
-      const file = ACCESSORY_FILES[i % ACCESSORY_FILES.length];
-      const side = Math.random() < 0.5 ? "left" : "right";
-      const size = Math.floor(36 + Math.random() * 110); // px
-      const rotate = (Math.random() * 60 - 30).toFixed(1); // -30..30deg
-      const topPct = Math.floor(10 + Math.random() * 80); // avoid extreme top/bottom
-      const delay = (Math.random() * 6).toFixed(2) + "s";
-      const duration = (8 + Math.random() * 10).toFixed(2) + "s";
-      arr.push({ file, side, size, rotate, topPct, delay, duration });
-    }
-    return arr;
-  }, []);
-
+function SideStaticArt() {
+  // Only on large screens so it sits in the side whitespace
   return (
     <div className="pointer-events-none fixed inset-0 z-0 hidden lg:block" aria-hidden="true">
-      {/* Left gutter */}
-      <div className="absolute left-0 top-24 bottom-24 w-[18vw]">
-        {spots.filter(s => s.side === "left").map((s, idx) => (
-          <img
-            key={"l"+idx}
-            src={`/images/accessories/${s.file}`}
-            alt=""
-            loading="lazy"
-            className="absolute select-none opacity-20 transition-opacity hover:opacity-70"
-            style={{
-              top: s.topPct + "%",
-              right: Math.floor(Math.random()*30) + "px",
-              width: s.size + "px",
-              height: s.size + "px",
-              transform: `rotate(${s.rotate}deg)`,
-              animation: `twinkle ${s.duration} ease-in-out ${s.delay} infinite, floaty ${Number(s.duration.replace('s',''))+2}s ease-in-out ${s.delay} infinite`
-            }}
-          />
-        ))}
+      {/* Left gutter (two images) */}
+      <div className="absolute left-0 top-28 bottom-28 w-[18vw]">
+        <img src={STATIC_SIDE_IMAGES_LEFT[0]} alt="" className="absolute opacity-30" style={{ top: "18%", right: "8%", width: "120px" }} />
+        <img src={STATIC_SIDE_IMAGES_LEFT[1]} alt="" className="absolute opacity-30" style={{ top: "56%", right: "14%", width: "88px" }} />
       </div>
-      {/* Right gutter */}
-      <div className="absolute right-0 top-24 bottom-24 w-[18vw]">
-        {spots.filter(s => s.side === "right").map((s, idx) => (
-          <img
-            key={"r"+idx}
-            src={`/images/accessories/${s.file}`}
-            alt=""
-            loading="lazy"
-            className="absolute select-none opacity-20 transition-opacity hover:opacity-70"
-            style={{
-              top: s.topPct + "%",
-              left: Math.floor(Math.random()*30) + "px",
-              width: s.size + "px",
-              height: s.size + "px",
-              transform: `rotate(${s.rotate}deg)`,
-              animation: `twinkle ${s.duration} ease-in-out ${s.delay} infinite, floaty ${Number(s.duration.replace('s',''))+2}s ease-in-out ${s.delay} infinite`
-            }}
-          />
-        ))}
+      {/* Right gutter (three images) */}
+      <div className="absolute right-0 top-28 bottom-28 w-[18vw]">
+        <img src={STATIC_SIDE_IMAGES_RIGHT[0]} alt="" className="absolute opacity-30" style={{ top: "22%", left: "10%", width: "96px" }} />
+        <img src={STATIC_SIDE_IMAGES_RIGHT[1]} alt="" className="absolute opacity-30" style={{ top: "48%", left: "6%", width: "132px" }} />
+        <img src={STATIC_SIDE_IMAGES_RIGHT[2]} alt="" className="absolute opacity-30" style={{ top: "78%", left: "12%", width: "84px" }} />
       </div>
     </div>
   );
@@ -396,17 +318,17 @@ export default function NounsDirectory() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
       <Header />
-      <SideDoodles />
+      <SideStaticArt />
 
-      {/* Intro paragraph */}
-      <p className="mt-4 text-sm leading-relaxed text-neutral-700">
-        Nouns is a decentralized project and the community members are the driving force behind its growth.
-        They continually expand and maintain the project with new technology, tools, and resources.
-        Explore different areas of Nouns through the categories below:
+      {/* Intro paragraph (larger + centered + bold highlights) */}
+      <p className="mx-auto mt-5 max-w-3xl text-center text-base md:text-xl leading-relaxed text-neutral-800">
+        <strong>Nouns</strong> is a <strong>decentralized</strong> project and the <strong>community</strong> is the driving force behind its growth.
+        Builders continually expand the ecosystem with new <strong>technology</strong>, <strong>tools</strong>, and <strong>resources</strong>.
+        Explore different areas of Nouns through the <strong>categories below</strong>.
       </p>
 
       {/* Search + Clear */}
-      <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="sr-only">Explore Nounish Projects</div>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -468,7 +390,7 @@ export default function NounsDirectory() {
               key={r.key}
               className="group flex h-full flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md"
             >
-              {/* Header: 30×30 logo + Title */}
+              {/* Header: logo + Title */}
               <div className="flex items-center gap-3">
                 <div className={`h-[30px] w-[30px] shrink-0 overflow-hidden rounded ${r.image ? "bg-neutral-100" : "bg-black"}`}>
                   {r.image ? (
@@ -479,6 +401,13 @@ export default function NounsDirectory() {
                       height="30"
                       loading="lazy"
                       className="h-full w-full object-cover"
+                      onError={(e) => {
+                        // If the image fails, remove it and make the box black
+                        e.currentTarget.remove();
+                        const p = e.currentTarget.parentElement;
+                        p && p.classList.remove("bg-neutral-100");
+                        p && p.classList.add("bg-black");
+                      }}
                     />
                   ) : null}
                 </div>

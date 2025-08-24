@@ -5,14 +5,3 @@
 html, body, #root {
   height: 100%;
 }
-
-/* Animations for doodles */
-@keyframes floaty {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
-  100% { transform: translateY(0px); }
-}
-@keyframes twinkle {
-  0%, 100% { opacity: 0.18; }
-  50% { opacity: 0.42; }
-}

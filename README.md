@@ -2,14 +2,11 @@
 
 Filterable directory pulling live data from a published Google Sheet.
 
-## v10
-- Side doodles placed randomly in left/right whitespace (not edges), soft twinkle + float; hover to brighten.
-- Category chips: monochrome pill with **colored text** (unselected), black pill when selected.
-- Card tags moved under description; logo placeholder is solid black if missing.
-
-## Assets
-- Accessory images → `public/images/accessories/`
-- Logos → `public/logos/` or use **Logo URL** in the sheet
+## v11
+- Replaced floating doodles with **static side art**: 2 on the left, 3 on the right (visible on lg+). Put files in `public/images/` as `resource-gif-1.gif` … `resource-gif-5.gif`.
+- Chips now have **black text** with a **thick black border**; selected chips are **solid black** with white text.
+- Card logo gracefully falls back to a **solid black** square if the image is missing or fails to load.
+- Intro paragraph is **larger**, **centered**, and uses **bold** for key phrases.
 
 ## Deploy
 - Build: `npm run build`
