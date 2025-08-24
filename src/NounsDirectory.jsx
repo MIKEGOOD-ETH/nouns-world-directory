@@ -1,5 +1,4 @@
-// v20: Fix Home URL (https://nouns.world), restore fixed viewport background art,
-// keep share button + favicon + OG tags, and fix JSX '&&' bug in card footer.
+// v21: Remove Share button; increase background art opacity slightly.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -35,7 +34,8 @@ const CONFIG = {
         { file: "/images/resource-gif-3.gif", rightVW: 2, topVH: 38, size: 120 },
         { file: "/images/resource-gif-4.gif", rightVW: 4, topVH: 72, size: 140 }
       ],
-      breakpoint: 1024
+      breakpoint: 1024,
+      opacity: 0.24 // slightly more visible than before
     }
   }
 };
@@ -73,7 +73,7 @@ function FixedViewportArt() {
           top: it.topVH != null ? `calc(${it.topVH}vh - ${it.size/2}px)` : undefined,
           left: it.leftVW != null ? `calc(${it.leftVW}vw - ${it.size/2}px)` : undefined,
           right: it.rightVW != null ? `calc(${it.rightVW}vw - ${it.size/2}px)` : undefined,
-          opacity: 0.16
+          opacity: CONFIG.site.art.opacity
         };
         return (
           <img
@@ -121,26 +121,6 @@ function Disclaimer() {
 
 function Header() {
   const stick = CONFIG.site.stickyHeader;
-
-  const onShare = async () => {
-    const url = window.location.href;
-    const text = "Check out nouns community produced resources on Nouns.World.";
-    const title = "Nouns.World / Resources";
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, text, url });
-        return;
-      } catch {}
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      alert("Link copied to clipboard!");
-    } catch {
-      prompt("Copy this link:", url);
-    }
-  };
-
   return (
     <div className={`${stick ? "sticky top-0" : ""} z-30 w-full bg-black text-white`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
@@ -162,14 +142,6 @@ function Header() {
           >
             Home
           </a>
-          <button
-            type="button"
-            onClick={onShare}
-            className="rounded-xl border border-white/30 px-3 py-2 text-sm text-white hover:bg-white/10"
-            title="Share this page"
-          >
-            Share
-          </button>
         </div>
       </div>
     </div>
@@ -368,7 +340,7 @@ export default function NounsDirectory() {
 
   return (
     <>
-      {/* Fixed viewport art at back */}
+      {/* Fixed art at back */}
       <FixedViewportArt />
 
       {/* Header */}
@@ -397,7 +369,7 @@ export default function NounsDirectory() {
                 className="w-full max-w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-900 sm:w-72"
                 aria-label="Search"
               />
-              {selectedTags.length > 0 && (
+              {selectedTags.length > 0 and (
                 <button
                   onClick={clearFilters}
                   className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm hover:bg-neutral-50"
