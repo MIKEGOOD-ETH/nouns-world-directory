@@ -23,11 +23,11 @@ const CONFIG = {
       desktop: [
         { file: "/images/resource-gif-1.gif", leftVW: 3,  topVH: 18, size: 220 },
         { file: "/images/resource-gif-2.gif", rightVW: 4, topVH: 14, size: 170 },
-        { file: "/images/resource-gif-4.gif", leftVW: 12,  topVH: 40, size: 270 },
+        { file: "/images/resource-gif-4.gif", leftVW: 12,  topVH: 60, size: 270 },
         { file: "/images/resource-gif-3.gif", rightVW: 6, topVH: 88, size: 270 },
         { file: "/images/resource-gif-5.gif", rightVW: 9, topVH: 36, size: 200 },
         { file: "/images/resource-gif-2.gif", leftVW: 10, topVH: 92, size: 180 },
-        { file: "/images/resource-gif-6.gif", rightVW: 12, topVH: 60, size: 180 }
+        { file: "/images/resource-gif-6.gif", rightVW: 10, topVH: 60, size: 200 }
       ],
       mobile: [
         { file: "/images/resource-gif-1.gif", leftVW: 2,  topVH: 22, size: 120 },
