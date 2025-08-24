@@ -2,9 +2,10 @@
 
 Filterable directory pulling live data from a published Google Sheet.
 
-## v14
-- **Static scattered background logos** (no animation), spaced using jittered grid + min-distance checks for an aesthetic layout similar in spirit to Uniswap's token background.
-- Sits *behind* opaque UI so logos only show in the whitespace.
+## v15
+- **Static repeating gutters** (md+): Left uses a 2-image sequence, right uses a 3-image sequence.
+- Semi-random positions: vertical steps between 360–480px with slight horizontal jitter; sizes 88–132px.
+- No animation; sits behind the UI. If overlap occurs on smaller displays, cards/chips render above.
 - Keeps: full-width black header, border-2 chips, black logo fallback, mobile dropdown filters, tags under description, disclaimer.
 
 ### Add your GIFs
@@ -18,14 +19,10 @@ resource-gif-5.gif
 ```
 
 ### Tuning
-Update `CONFIG.site.scatter` in `src/NounsDirectory.jsx`:
-- `baseCell`: spacing scale (bigger = fewer items)
-- `sizeMin` / `sizeMax`: logo size range
-- `minGap`: minimum distance between centers
-- `chancePerCell`: probability per grid cell
-- `minCount` / `maxCount`: clamp the total
-- `opacity`: logo opacity
-- `seed`: deterministic layout
+Edit `CONFIG.site.gutters` in `src/NounsDirectory.jsx`:
+- `stepMin/stepMax` (vertical spacing), `sizeMin/sizeMax`, `jitterX`, `opacity`
+- `gutterMinPx` (hide if too narrow), `showBreakpointPx` (md breakpoint)
+- `seed` (deterministic layout)
 
 ## Deploy
 - Build: `npm run build`
