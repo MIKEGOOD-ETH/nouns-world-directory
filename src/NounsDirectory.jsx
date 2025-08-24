@@ -1,9 +1,13 @@
 // Nouns.world — Filterable Directory (Google Sheets)
-// v9:
-// a) Mobile: filters collapse into a dropdown with checkboxes (md+ keeps chip grid)
-// b) Tag colors: switched to monotone neutrals
-// c) Edge doodles: place accessory images around page edges at random angles/sizes (lg+ only)
-//    Put files in /public/images/accessories/ (see ACCESSORY_FILES).
+// v10:
+// 1) Side doodles float randomly in the left/right whitespace (not top/bottom edges), pulse softly;
+//    fade up on hover. Only on lg+.
+// 2) Category chips: monotone with **colored text** (chromatic) when unselected, selected = black pill.
+// 3) Card tag chips moved **under description**, above "Explore →".
+// 4) Missing logo placeholder is solid black square.
+//
+// Place accessory images under: /public/images/accessories/  (same list as before).
+// Logos: /public/logos/... or use Logo URL in the sheet.
 
 import React, { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
@@ -23,7 +27,7 @@ const CONFIG = {
   },
   site: {
     openLinksInNewTab: true,
-    enableAccessoryDoodles: true  // set false to hide edge images
+    enableDoodles: true
   }
 };
 
@@ -54,19 +58,32 @@ const parseList = (val) =>
     .map((v) => v.trim())
     .filter(Boolean);
 
-const Pill = ({ children, selected, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`w-full rounded-2xl border px-3 py-2 text-sm transition ${
-      selected
-        ? "border-neutral-900 bg-neutral-900 text-white shadow"
-        : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
-    }`}
-  >
-    <span className="truncate">{children}</span>
-  </button>
-);
+/** chromatic but tasteful text color derived from text */
+function inkFromText(text) {
+  let h = 0;
+  const s = 60; // saturation
+  const l = 40; // lightness
+  for (let i = 0; i < (text || "").length; i++) h = (h * 31 + text.charCodeAt(i)) % 360;
+  return `hsl(${h} ${s}% ${l}%)`;
+}
+
+const Pill = ({ children, selected, onClick }) => {
+  const color = inkFromText(children);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-2xl border px-3 py-2 text-sm transition ${
+        selected
+          ? "border-neutral-900 bg-neutral-900 text-white shadow"
+          : "border-neutral-300 bg-white hover:bg-neutral-50"
+      }`}
+      style={selected ? undefined : { color }}
+    >
+      <span className="truncate">{children}</span>
+    </button>
+  );
+};
 
 function Disclaimer() {
   const [open, setOpen] = useState(false);
@@ -209,48 +226,68 @@ function MobileFilters({ tags, selected, onToggle, onClear }) {
   );
 }
 
-function EdgeDoodles() {
-  if (!CONFIG.site.enableAccessoryDoodles) return null;
-  // Positions near edges; lg+ only
-  const spots = useMemo(() => {
-    const rand = (a, b) => a + Math.random() * (b - a);
-    const makeSpot = (side) => {
-      const rotate = rand(-25, 25).toFixed(1);
-      const size = rand(36, 110).toFixed(0); // px
-      let style = { transform: `rotate(${rotate}deg)`, width: `${size}px`, height: `${size}px` };
-      const offset = `${rand(8, 85).toFixed(0)}%`;
-      switch (side) {
-        case "left":
-          style.left = "-12px"; style.top = offset; break;
-        case "right":
-          style.right = "-12px"; style.top = offset; break;
-        case "top":
-          style.top = "-12px"; style.left = offset; break;
-        case "bottom":
-          style.bottom = "-12px"; style.left = offset; break;
-      }
-      return style;
-    };
-    const sides = ["left","right","top","bottom"];
-    const count = Math.min(10, ACCESSORY_FILES.length);
-    return Array.from({length: count}).map((_, i) => ({
-      file: ACCESSORY_FILES[i % ACCESSORY_FILES.length],
-      style: makeSpot(sides[i % sides.length])
-    }));
+function SideDoodles() {
+  if (!CONFIG.site.enableDoodles) return null;
+
+  // Build randomized layout once
+  const spots = React.useMemo(() => {
+    const count = Math.min(12, ACCESSORY_FILES.length);
+    const arr = [];
+    for (let i = 0; i < count; i++) {
+      const file = ACCESSORY_FILES[i % ACCESSORY_FILES.length];
+      const side = Math.random() < 0.5 ? "left" : "right";
+      const size = Math.floor(36 + Math.random() * 110); // px
+      const rotate = (Math.random() * 60 - 30).toFixed(1); // -30..30deg
+      const topPct = Math.floor(10 + Math.random() * 80); // avoid extreme top/bottom
+      const delay = (Math.random() * 6).toFixed(2) + "s";
+      const duration = (8 + Math.random() * 10).toFixed(2) + "s";
+      arr.push({ file, side, size, rotate, topPct, delay, duration });
+    }
+    return arr;
   }, []);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 hidden lg:block" aria-hidden="true">
-      {spots.map((s, idx) => (
-        <img
-          key={idx}
-          src={`/images/accessories/${s.file}`}
-          alt=""
-          className="absolute opacity-30 select-none"
-          style={s.style}
-          loading="lazy"
-        />
-      ))}
+      {/* Left gutter */}
+      <div className="absolute left-0 top-24 bottom-24 w-[18vw]">
+        {spots.filter(s => s.side === "left").map((s, idx) => (
+          <img
+            key={"l"+idx}
+            src={`/images/accessories/${s.file}`}
+            alt=""
+            loading="lazy"
+            className="absolute select-none opacity-20 transition-opacity hover:opacity-70"
+            style={{
+              top: s.topPct + "%",
+              right: Math.floor(Math.random()*30) + "px",
+              width: s.size + "px",
+              height: s.size + "px",
+              transform: `rotate(${s.rotate}deg)`,
+              animation: `twinkle ${s.duration} ease-in-out ${s.delay} infinite, floaty ${Number(s.duration.replace('s',''))+2}s ease-in-out ${s.delay} infinite`
+            }}
+          />
+        ))}
+      </div>
+      {/* Right gutter */}
+      <div className="absolute right-0 top-24 bottom-24 w-[18vw]">
+        {spots.filter(s => s.side === "right").map((s, idx) => (
+          <img
+            key={"r"+idx}
+            src={`/images/accessories/${s.file}`}
+            alt=""
+            loading="lazy"
+            className="absolute select-none opacity-20 transition-opacity hover:opacity-70"
+            style={{
+              top: s.topPct + "%",
+              left: Math.floor(Math.random()*30) + "px",
+              width: s.size + "px",
+              height: s.size + "px",
+              transform: `rotate(${s.rotate}deg)`,
+              animation: `twinkle ${s.duration} ease-in-out ${s.delay} infinite, floaty ${Number(s.duration.replace('s',''))+2}s ease-in-out ${s.delay} infinite`
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -359,7 +396,7 @@ export default function NounsDirectory() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
       <Header />
-      <EdgeDoodles />
+      <SideDoodles />
 
       {/* Intro paragraph */}
       <p className="mt-4 text-sm leading-relaxed text-neutral-700">
@@ -433,7 +470,7 @@ export default function NounsDirectory() {
             >
               {/* Header: 30×30 logo + Title */}
               <div className="flex items-center gap-3">
-                <div className="h-[30px] w-[30px] shrink-0 overflow-hidden rounded bg-neutral-100">
+                <div className={`h-[30px] w-[30px] shrink-0 overflow-hidden rounded ${r.image ? "bg-neutral-100" : "bg-black"}`}>
                   {r.image ? (
                     <img
                       src={r.image}
@@ -461,8 +498,11 @@ export default function NounsDirectory() {
                 </h3>
               </div>
 
-              {/* Tags on card (monotone) */}
-              <div className="mt-2 flex flex-wrap gap-2">
+              {/* Description */}
+              <p className="mt-3 text-sm text-neutral-700">{r.description}</p>
+
+              {/* Tags under description */}
+              <div className="mt-3 flex flex-wrap gap-2">
                 {r.mainTag ? (
                   <span className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800">
                     {r.mainTag}
@@ -475,9 +515,6 @@ export default function NounsDirectory() {
                   ))
                 )}
               </div>
-
-              {/* Description */}
-              <p className="mt-3 text-sm text-neutral-700">{r.description}</p>
 
               {/* Footer: Explore -> aligned right & at bottom */}
               {r.link && (
