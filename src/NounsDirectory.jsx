@@ -1,15 +1,5 @@
 // Nouns.world — Filterable Directory (Google Sheets)
-// Updates implemented per request:
-// 1) Left logo space (nouns-world-globe.gif), same header height
-// 2) Title changed to "NOUNS.WORLD/RESOURCES"
-// 3) Added text "Explore Nouns Projects" above filters
-// 4) Filters stacked in a responsive grid (no horizontal scroll)
-// 5) "X shown" moved under category tags
-// 6) Removed A–Z selector
-// 7) Added Home button (to https://www.nouns.world/)
-// 8) Added "Explore →" link on each card footer
-// 9) Added caution note below header
-// 10) Mobile/iPad friendly adjustments
+// New updates implemented per your notes.
 
 import React, { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
@@ -21,7 +11,9 @@ const CONFIG = {
     title: "Name (with url hyperlinked)",
     link: "URL",
     description: "Description",
-    categories: "Category",
+    categories: "Category",       // legacy (not shown), still searchable
+    mainTag: "Main tag",          // NEW: displayed as chips
+    hiddenTags: "Hidden tags",    // NEW: search-only keywords
     image: "Logo"
   },
   site: {
@@ -59,14 +51,43 @@ const Pill = ({ children, selected, onClick }) => (
   </button>
 );
 
+function Disclaimer() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex items-center gap-2 text-xs text-neutral-600">
+      <span className="font-medium">Disclaimer</span>
+      <div
+        className="relative group"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+      >
+        <button
+          type="button"
+          aria-label="Disclaimer information"
+          onClick={() => setOpen((v) => !v)}
+          className="flex h-5 w-5 items-center justify-center rounded-full border border-neutral-300 text-[10px] leading-none"
+        >
+          i
+        </button>
+        <div
+          className={`absolute right-0 top-full mt-2 w-80 rounded-lg border border-neutral-200 bg-white p-3 text-xs text-neutral-800 shadow-lg transition ${
+            open ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95"
+          }`}
+        >
+          <strong>Warning.</strong> Links lead off of nouns.world. Please make sure to do your own research
+          and only click links or connect to websites you trust.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Header() {
   return (
     <div className="sticky top-0 z-10 -mx-4 border-b bg-white/90 px-4 py-3 backdrop-blur">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          {/* Logo space (uses /nouns-world-globe.gif if present in public/) */}
-          <div className="h-10 w-10 overflow-hidden rounded bg-neutral-100 flex items-center justify-center">
-            {/* If image fails to load, the placeholder box remains */}
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded bg-neutral-100">
             <img
               src="/nouns-world-globe.gif"
               alt="Nouns.world"
@@ -74,9 +95,8 @@ function Header() {
               onError={(e) => e.currentTarget.remove()}
             />
           </div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">NOUNS.WORLD/RESOURCES</h1>
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">NOUNS.WORLD/RESOURCES</h1>
         </div>
-
         <div className="flex items-center gap-2">
           <a
             href="https://www.nouns.world/"
@@ -93,7 +113,7 @@ function Header() {
 export default function NounsDirectory() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCats, setSelectedCats] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -104,12 +124,25 @@ export default function NounsDirectory() {
       complete: (res) => {
         const raw = res.data || [];
         const data = raw.map((row, i) => {
-          const title = (row[CONFIG.COLUMNS.title] || "").toString().trim();
+          const titleRaw = (row[CONFIG.COLUMNS.title] || "").toString().trim();
           const link = (row[CONFIG.COLUMNS.link] || "").toString().trim();
+          const title = titleRaw || (link ? new URL(link).hostname.replace(/^www\./, "") : `Untitled ${i + 1}`);
           const description = (row[CONFIG.COLUMNS.description] || "").toString().trim();
-          const categories = parseList(row[CONFIG.COLUMNS.categories]);
+          const legacyCategories = parseList(row[CONFIG.COLUMNS.categories]);
+          const mainTagList = parseList(row[CONFIG.COLUMNS.mainTag]);
+          const mainTag = mainTagList[0] || "";
+          const hidden = parseList(row[CONFIG.COLUMNS.hiddenTags]);
           const image = (row[CONFIG.COLUMNS.image] || "").toString().trim();
-          return { key: `${slug(title)}-${i}`, title, link, description, categories, image };
+
+          return {
+            key: `${slug(title)}-${i}`,
+            title,
+            link,
+            description,
+            mainTag,
+            hiddenTags: hidden,
+            legacyCategories
+          };
         });
         setRows(data);
         setLoading(false);
@@ -118,60 +151,62 @@ export default function NounsDirectory() {
     });
   }, []);
 
-  const allCategories = useMemo(() => {
+  const allMainTags = useMemo(() => {
     const set = new Set();
-    rows.forEach((r) => r.categories.forEach((c) => set.add(c)));
+    rows.forEach((r) => { if (r.mainTag) set.add(r.mainTag); });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
   const filtered = useMemo(() => {
     let out = rows;
-    if (selectedCats.length) {
-      const wanted = new Set(selectedCats.map((c) => slug(c)));
-      out = out.filter((r) => r.categories.some((c) => wanted.has(slug(c))));
+    if (selectedTags.length) {
+      const wanted = new Set(selectedTags.map((t) => slug(t)));
+      out = out.filter((r) => r.mainTag && wanted.has(slug(r.mainTag)));
     }
     if (query.trim()) {
       const q = query.trim().toLowerCase();
-      out = out.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.description.toLowerCase().includes(q) ||
-          r.categories.join(", ").toLowerCase().includes(q)
-      );
+      out = out.filter((r) => {
+        const haystack = [
+          r.title,
+          r.description,
+          r.mainTag,
+          ...(r.hiddenTags || []),
+          ...(r.legacyCategories || [])
+        ].join(" | ").toLowerCase();
+        return haystack.includes(q);
+      });
     }
     return out;
-  }, [rows, selectedCats, query]);
+  }, [rows, selectedTags, query]);
 
-  const toggleCat = (cat) => {
-    const sl = slug(cat);
-    setSelectedCats((prev) =>
-      prev.some((c) => slug(c) === sl) ? prev.filter((c) => slug(c) !== sl) : [...prev, cat]
+  const toggleTag = (tag) => {
+    const sl = slug(tag);
+    setSelectedTags((prev) =>
+      prev.some((t) => slug(t) === sl) ? prev.filter((t) => slug(t) !== sl) : [...prev, tag]
     );
   };
 
-  const clearFilters = () => setSelectedCats([]);
+  const clearFilters = () => setSelectedTags([]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
       <Header />
 
-      {/* Caution note */}
-      <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-        Note: you’re about to navigate away from Nouns.world for external resources. Please be careful and do your own research.
+      <div className="mt-4">
+        <Disclaimer />
       </div>
 
-      {/* Controls */}
       <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="text-base md:text-lg font-semibold">Explore Nouns Projects</div>
+        <div className="text-base font-semibold md:text-lg">Explore Nounish Projects</div>
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search projects…"
-            className="w-full sm:w-72 max-w-[100%] rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            placeholder="Search resources…"
+            className="w-full max-w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 sm:w-72"
             aria-label="Search"
           />
-          {selectedCats.length > 0 && (
+          {selectedTags.length > 0 && (
             <button
               onClick={clearFilters}
               className="rounded-xl border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
@@ -182,23 +217,20 @@ export default function NounsDirectory() {
         </div>
       </div>
 
-      {/* Category bubbles — stacked grid */}
-      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-        {allCategories.map((c) => (
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {allMainTags.map((t) => (
           <Pill
-            key={c}
-            selected={selectedCats.some((x) => slug(x) === slug(c))}
-            onClick={() => toggleCat(c)}
+            key={t}
+            selected={selectedTags.some((x) => slug(x) === slug(t))}
+            onClick={() => toggleTag(t)}
           >
-            {c}
+            {t}
           </Pill>
         ))}
       </div>
 
-      {/* Count under tags */}
       <div className="mt-2 text-xs text-neutral-600">{filtered.length} shown</div>
 
-      {/* Cards */}
       {loading ? (
         <div className="mt-6 text-sm text-neutral-600">Loading…</div>
       ) : (
@@ -206,16 +238,10 @@ export default function NounsDirectory() {
           {filtered.map((r) => (
             <article
               key={r.key}
-              className="group rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+              className="group flex h-full flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md"
             >
-              {/* 30×30 placeholder (or future image) */}
               <div className="flex items-center gap-3">
-                <div className="h-[30px] w-[30px] shrink-0 overflow-hidden rounded bg-neutral-100">
-                  {r.image ? (
-                    // eslint-disable-next-line jsx-a11y/alt-text
-                    <img src={r.image} className="h-full w-full object-cover" />
-                  ) : null}
-                </div>
+                <div className="h-[30px] w-[30px] shrink-0 overflow-hidden rounded bg-neutral-100"></div>
                 <h3 className="min-w-0 truncate text-lg font-semibold leading-snug">
                   {r.link ? (
                     <a
@@ -232,22 +258,18 @@ export default function NounsDirectory() {
                 </h3>
               </div>
 
+              {r.mainTag && (
+                <div className="mt-2">
+                  <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-700">
+                    {r.mainTag}
+                  </span>
+                </div>
+              )}
+
               <p className="mt-3 text-sm text-neutral-700">{r.description}</p>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                {r.categories.map((c) => (
-                  <span
-                    key={`${r.key}-${c}`}
-                    className="rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-700"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-
-              {/* Card footer link */}
               {r.link && (
-                <div className="mt-4">
+                <div className="mt-auto pt-4 flex justify-end">
                   <a
                     href={r.link}
                     target={CONFIG.site.openLinksInNewTab ? "_blank" : undefined}
