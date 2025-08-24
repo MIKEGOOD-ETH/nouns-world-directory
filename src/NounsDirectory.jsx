@@ -1,11 +1,10 @@
 // Nouns.world — Filterable Directory (Google Sheets)
-// v11 updates per your notes:
-// 1) Remove floating doodles; instead render 2 static images on the left gutter and 3 on the right.
-//    Filenames (transparent GIFs) expected in /public/images/: resource-gif-1.gif ... resource-gif-5.gif
-// 2) If a logo fails to load or is missing, show a solid black 30x30 square.
-// 3) Category chips: black text, thicker black stroke (border-4) around each; selected = solid black with white text.
-// 4) Intro paragraph: larger, centered, with strategic bolding for readability.
-// 5) Keep: mobile dropdown filters, tags under description, "Explore →" at bottom-right.
+// v12:
+// 1) Header is full-width **black** with **white** text; extends across the page.
+//    Added CONFIG.site.stickyHeader (default false).
+// 2) Category chip border reduced (border-2 instead of border-4).
+// 3) Removed any gray box behind header logo (transparent wrapper).
+// 4) Kept all v11 behavior (static side art, tags under description, black logo fallback, mobile filters).
 
 import React, { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
@@ -24,7 +23,8 @@ const CONFIG = {
     image: ["Logo", "Image"]
   },
   site: {
-    openLinksInNewTab: true
+    openLinksInNewTab: true,
+    stickyHeader: false
   }
 };
 
@@ -66,10 +66,10 @@ const Pill = ({ children, selected, onClick }) => (
   <button
     type="button"
     onClick={onClick}
-    className={`w-full rounded-2xl border-4 px-3 py-2 text-sm transition ${
+    className={`w-full rounded-2xl px-3 py-2 text-sm transition ${
       selected
-        ? "border-black bg-black text-white shadow"
-        : "border-black bg-white text-black hover:bg-neutral-50"
+        ? "border-2 border-black bg-black text-white shadow"
+        : "border-2 border-black bg-white text-black hover:bg-neutral-50"
     }`}
   >
     <span className="truncate">{children}</span>
@@ -108,11 +108,13 @@ function Disclaimer() {
 }
 
 function Header() {
+  // full-width black header; content centered inside
+  const stick = CONFIG.site.stickyHeader;
   return (
-    <div className="sticky top-0 z-10 -mx-4 border-b bg-white/90 px-4 py-3 backdrop-blur">
-      <div className="flex items-center justify-between gap-3">
+    <div className={`${stick ? "sticky top-0" : ""} z-20 w-full bg-black text-white`}>
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded bg-neutral-100">
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden">
             <img
               src="/nouns-world-globe.gif"
               alt="Nouns.world"
@@ -125,7 +127,7 @@ function Header() {
         <div className="flex items-center gap-2">
           <a
             href="https://www.nouns.world/"
-            className="rounded-xl border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
+            className="rounded-xl border border-white/30 px-3 py-2 text-sm text-white hover:bg-white/10"
           >
             Home
           </a>
@@ -201,14 +203,14 @@ function SideStaticArt() {
     <div className="pointer-events-none fixed inset-0 z-0 hidden lg:block" aria-hidden="true">
       {/* Left gutter (two images) */}
       <div className="absolute left-0 top-28 bottom-28 w-[18vw]">
-        <img src={STATIC_SIDE_IMAGES_LEFT[0]} alt="" className="absolute opacity-30" style={{ top: "18%", right: "8%", width: "120px" }} />
-        <img src={STATIC_SIDE_IMAGES_LEFT[1]} alt="" className="absolute opacity-30" style={{ top: "56%", right: "14%", width: "88px" }} />
+        <img src="/images/resource-gif-1.gif" alt="" className="absolute opacity-30" style={{ top: "18%", right: "8%", width: "120px" }} />
+        <img src="/images/resource-gif-2.gif" alt="" className="absolute opacity-30" style={{ top: "56%", right: "14%", width: "88px" }} />
       </div>
       {/* Right gutter (three images) */}
       <div className="absolute right-0 top-28 bottom-28 w-[18vw]">
-        <img src={STATIC_SIDE_IMAGES_RIGHT[0]} alt="" className="absolute opacity-30" style={{ top: "22%", left: "10%", width: "96px" }} />
-        <img src={STATIC_SIDE_IMAGES_RIGHT[1]} alt="" className="absolute opacity-30" style={{ top: "48%", left: "6%", width: "132px" }} />
-        <img src={STATIC_SIDE_IMAGES_RIGHT[2]} alt="" className="absolute opacity-30" style={{ top: "78%", left: "12%", width: "84px" }} />
+        <img src="/images/resource-gif-3.gif" alt="" className="absolute opacity-30" style={{ top: "22%", left: "10%", width: "96px" }} />
+        <img src="/images/resource-gif-4.gif" alt="" className="absolute opacity-30" style={{ top: "48%", left: "6%", width: "132px" }} />
+        <img src="/images/resource-gif-5.gif" alt="" className="absolute opacity-30" style={{ top: "78%", left: "12%", width: "84px" }} />
       </div>
     </div>
   );
@@ -316,152 +318,155 @@ export default function NounsDirectory() {
   const clearFilters = () => setSelectedTags([]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24">
+    <>
+      {/* Full-width header outside the content container */}
       <Header />
-      <SideStaticArt />
 
-      {/* Intro paragraph (larger + centered + bold highlights) */}
-      <p className="mx-auto mt-5 max-w-3xl text-center text-base md:text-xl leading-relaxed text-neutral-800">
-        <strong>Nouns</strong> is a <strong>decentralized</strong> project and the <strong>community</strong> is the driving force behind its growth.
-        Builders continually expand the ecosystem with new <strong>technology</strong>, <strong>tools</strong>, and <strong>resources</strong>.
-        Explore different areas of Nouns through the <strong>categories below</strong>.
-      </p>
+      <div className="relative mx-auto max-w-6xl px-4 pb-24">
+        <SideStaticArt />
 
-      {/* Search + Clear */}
-      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="sr-only">Explore Nounish Projects</div>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search resources…"
-            className="w-full max-w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 sm:w-72"
-            aria-label="Search"
+        {/* Intro paragraph (larger + centered + bold highlights) */}
+        <p className="mx-auto mt-5 max-w-3xl text-center text-base md:text-xl leading-relaxed text-neutral-800">
+          <strong>Nouns</strong> is a <strong>decentralized</strong> project and the <strong>community</strong> is the driving force behind its growth.
+          Builders continually expand the ecosystem with new <strong>technology</strong>, <strong>tools</strong>, and <strong>resources</strong>.
+          Explore different areas of Nouns through the <strong>categories below</strong>.
+        </p>
+
+        {/* Search + Clear */}
+        <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="sr-only">Explore Nounish Projects</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search resources…"
+              className="w-full max-w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 sm:w-72"
+              aria-label="Search"
+            />
+            {selectedTags.length > 0 && (
+              <button
+                onClick={clearFilters}
+                className="rounded-xl border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile dropdown filters */}
+        <div className="mt-3 md:hidden">
+          <MobileFilters
+            tags={allFilterTags}
+            selected={selectedTags}
+            onToggle={toggleTag}
+            onClear={clearFilters}
           />
-          {selectedTags.length > 0 && (
-            <button
-              onClick={clearFilters}
-              className="rounded-xl border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
-            >
-              Clear filters
-            </button>
-          )}
         </div>
-      </div>
 
-      {/* Mobile dropdown filters */}
-      <div className="mt-3 md:hidden">
-        <MobileFilters
-          tags={allFilterTags}
-          selected={selectedTags}
-          onToggle={toggleTag}
-          onClear={clearFilters}
-        />
-      </div>
-
-      {/* Desktop/tablet chip grid */}
-      <div className="mt-3 hidden grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 md:grid">
-        {allFilterTags.map((t) => (
-          <Pill
-            key={t}
-            selected={selectedTags.some((x) => slug(x) === slug(t))}
-            onClick={() => toggleTag(t)}
-          >
-            {t}
-          </Pill>
-        ))}
-      </div>
-
-      {/* Count + Disclaimer */}
-      <div className="mt-2 flex items-center justify-between text-xs text-neutral-600">
-        <div>{filtered.length} shown</div>
-        <div className="ml-4">
-          <Disclaimer />
-        </div>
-      </div>
-
-      {/* Cards */}
-      {loading ? (
-        <div className="mt-6 text-sm text-neutral-600">Loading…</div>
-      ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((r) => (
-            <article
-              key={r.key}
-              className="group flex h-full flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+        {/* Desktop/tablet chip grid */}
+        <div className="mt-3 hidden grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 md:grid">
+          {allFilterTags.map((t) => (
+            <Pill
+              key={t}
+              selected={selectedTags.some((x) => slug(x) === slug(t))}
+              onClick={() => toggleTag(t)}
             >
-              {/* Header: logo + Title */}
-              <div className="flex items-center gap-3">
-                <div className={`h-[30px] w-[30px] shrink-0 overflow-hidden rounded ${r.image ? "bg-neutral-100" : "bg-black"}`}>
-                  {r.image ? (
-                    <img
-                      src={r.image}
-                      alt=""
-                      width="30"
-                      height="30"
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        // If the image fails, remove it and make the box black
-                        e.currentTarget.remove();
-                        const p = e.currentTarget.parentElement;
-                        p && p.classList.remove("bg-neutral-100");
-                        p && p.classList.add("bg-black");
-                      }}
-                    />
-                  ) : null}
+              {t}
+            </Pill>
+          ))}
+        </div>
+
+        {/* Count + Disclaimer */}
+        <div className="mt-2 flex items-center justify-between text-xs text-neutral-600">
+          <div>{filtered.length} shown</div>
+          <div className="ml-4">
+            <Disclaimer />
+          </div>
+        </div>
+
+        {/* Cards */}
+        {loading ? (
+          <div className="mt-6 text-sm text-neutral-600">Loading…</div>
+        ) : (
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((r) => (
+              <article
+                key={r.key}
+                className="group flex h-full flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+              >
+                {/* Header: logo + Title */}
+                <div className="flex items-center gap-3">
+                  <div className={`h-[30px] w-[30px] shrink-0 overflow-hidden rounded ${r.image ? "bg-neutral-100" : "bg-black"}`}>
+                    {r.image ? (
+                      <img
+                        src={r.image}
+                        alt=""
+                        width="30"
+                        height="30"
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.remove();
+                          const p = e.currentTarget.parentElement;
+                          p && p.classList.remove("bg-neutral-100");
+                          p && p.classList.add("bg-black");
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                  <h3 className="min-w-0 truncate text-lg font-semibold leading-snug">
+                    {r.link ? (
+                      <a
+                        href={r.link}
+                        target={CONFIG.site.openLinksInNewTab ? "_blank" : undefined}
+                        rel="noreferrer noopener"
+                        className="hover:underline"
+                      >
+                        {r.title}
+                      </a>
+                    ) : (
+                      r.title
+                    )}
+                  </h3>
                 </div>
-                <h3 className="min-w-0 truncate text-lg font-semibold leading-snug">
-                  {r.link ? (
+
+                {/* Description */}
+                <p className="mt-3 text-sm text-neutral-700">{r.description}</p>
+
+                {/* Tags under description */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {r.mainTag ? (
+                    <span className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800">
+                      {r.mainTag}
+                    </span>
+                  ) : (
+                    (r.legacyCategories || []).slice(0, 3).map((c) => (
+                      <span key={c} className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800">
+                        {c}
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                {/* Footer: Explore -> aligned right & at bottom */}
+                {r.link && (
+                  <div className="mt-auto pt-4 flex justify-end">
                     <a
                       href={r.link}
                       target={CONFIG.site.openLinksInNewTab ? "_blank" : undefined}
                       rel="noreferrer noopener"
-                      className="hover:underline"
+                      className="inline-flex items-center gap-1 text-sm font-medium underline underline-offset-4"
                     >
-                      {r.title}
+                      Explore →
                     </a>
-                  ) : (
-                    r.title
-                  )}
-                </h3>
-              </div>
-
-              {/* Description */}
-              <p className="mt-3 text-sm text-neutral-700">{r.description}</p>
-
-              {/* Tags under description */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {r.mainTag ? (
-                  <span className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800">
-                    {r.mainTag}
-                  </span>
-                ) : (
-                  (r.legacyCategories || []).slice(0, 3).map((c) => (
-                    <span key={c} className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800">
-                      {c}
-                    </span>
-                  ))
+                  </div>
                 )}
-              </div>
-
-              {/* Footer: Explore -> aligned right & at bottom */}
-              {r.link && (
-                <div className="mt-auto pt-4 flex justify-end">
-                  <a
-                    href={r.link}
-                    target={CONFIG.site.openLinksInNewTab ? "_blank" : undefined}
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1 text-sm font-medium underline underline-offset-4"
-                  >
-                    Explore →
-                  </a>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
