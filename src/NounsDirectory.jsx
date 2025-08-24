@@ -30,9 +30,8 @@ const CONFIG = {
         { file: "/images/resource-gif-6.gif", rightVW: 18, topVH: 60, size: 200 }
       ],
       mobile: [
-        { file: "/images/resource-gif-1.gif", leftVW: 2,  topVH: 22, size: 120 },
-        { file: "/images/resource-gif-4.gif", leftVW: 2, topVH: 38, size: 160 },
-        { file: "/images/resource-gif-4.gif", leftVW: 2, topVH: 66, size: 120 },
+        { file: "/images/resource-gif-1.gif", leftVW: 3,  topVH: 18, size: 220 },
+        { file: "/images/resource-gif-4.gif", leftVW: 12,  topVH: 60, size: 270 },
         { file: "/images/resource-gif-3.gif", rightVW: 4, topVH: 72, size: 200 }
       ],
       breakpoint: 1024,
