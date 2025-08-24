@@ -2,43 +2,16 @@
 
 Filterable directory pulling live data from a published Google Sheet.
 
-## v18
-- **Fixed, non-scrolling background art** placed at specific viewport positions. You can match your red marks exactly by tweaking the coordinates.
-- Visible on mobile and desktop; always behind header and content; doesn't affect layout.
-- Keeps: black header, border-2 chips, black logo fallback, mobile dropdown filters, tags under description, disclaimer.
+## v19
+- **Home link** now points to `https://nouns.world` (no `www`).
+- **Favicon** uses your site header gif: `/nouns-world-globe.gif`.
+- **Share image** added at `/resource-share.png` and Open Graph + Twitter tags included.
+- **Share button** in the header uses the Web Share API (falls back to copying the URL).
 
-### Where to edit the layout
-Open `src/NounsDirectory.jsx` → `CONFIG.site.art`:
+### Where to put assets
+- Put your GIF favicon at the project root `public/nouns-world-globe.gif` (same file you use in the header).
+- The share image is already provided at `public/resource-share.png`. Replace it with your own if desired.
 
-```js
-art: {
-  desktop: [
-    { file: "/images/resource-gif-1.gif", leftVW: 3,  topVH: 18, size: 220 },
-    { file: "/images/resource-gif-2.gif", rightVW: 4, topVH: 14, size: 170 },
-    // ...
-  ],
-  mobile: [
-    { file: "/images/resource-gif-1.gif", leftVW: 2, topVH: 22, size: 120 },
-    // ...
-  ],
-  breakpoint: 1024
-}
-```
-
-- Use `leftVW` or `rightVW` (in viewport-width %) and `topVH` (viewport-height %) plus `size` in px.
-- Add/remove objects to change how many you want.
-- Header stays on top thanks to a higher z-index; art sits in a `fixed` full-screen layer at `z-0`.
-
-### Assets
-Place in `public/images/`:
-```
-resource-gif-1.gif
-resource-gif-2.gif
-resource-gif-3.gif
-resource-gif-4.gif
-resource-gif-5.gif
-```
-
-## Deploy
+### Deploy
 - Build: `npm run build`
 - Output: `dist`
