@@ -1,4 +1,8 @@
-// v23b: Same as v23 (filters use only Category; Additional Categories at card top).
+// v24:
+// - Filters use only the "Category" column.
+// - Chips on cards use "Card Categories" (formerly Additional Categories).
+// - Search covers title/description + Category + Card Categories + Hidden tags.
+// - Keeps your background art positions & 0.34 opacity; favicon + OG tags remain.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -11,7 +15,7 @@ const CONFIG = {
     link: ["URL", "Link"],
     description: ["Description", "About"],
     categories: ["Category"], // filters only
-    additional: ["Additional Categories", "Additional categories"],
+    cardCategories: ["Card Categories", "Card categories"],
     hiddenTags: ["Hidden tags", "Hidden Tags", "Search tags", "Search Keywords"],
     logoUrl: ["Logo URL", "Logo url", "Image URL"],
     image: ["Logo", "Image"]
@@ -67,7 +71,7 @@ function resolveColumns(fields, candidatesMap) {
     link: pick(candidatesMap.link),
     description: pick(candidatesMap.description),
     categories: pick(candidatesMap.categories),
-    additional: pick(candidatesMap.additional),
+    cardCategories: pick(candidatesMap.cardCategories),
     hiddenTags: pick(candidatesMap.hiddenTags),
     logoUrl: pick(candidatesMap.logoUrl),
     image: pick(candidatesMap.image)
@@ -272,7 +276,7 @@ export default function NounsDirectory() {
           const description = String((cols.description && row[cols.description]) || "").trim();
 
           const categories = parseList(cols.categories ? row[cols.categories] : "");
-          const additional = parseList(cols.additional ? row[cols.additional] : "");
+          const cardCategories = parseList(cols.cardCategories ? row[cols.cardCategories] : "");
           const hidden = parseList(cols.hiddenTags ? row[cols.hiddenTags] : "");
 
           const logoUrl = String((cols.logoUrl && row[cols.logoUrl]) || "").trim();
@@ -280,7 +284,7 @@ export default function NounsDirectory() {
           const derivedLogo = title ? `/logos/${slug(title)}.png` : "";
           const image = logoUrl || legacyLogo || derivedLogo;
 
-          return { key: `${slug(title)}-${i}`, title, link, description, categories, additional, hiddenTags: hidden, image };
+          return { key: `${slug(title)}-${i}`, title, link, description, categories, cardCategories, hiddenTags: hidden, image };
         });
 
         setRows(data);
@@ -290,12 +294,14 @@ export default function NounsDirectory() {
     });
   }, []);
 
+  // Filters: only Category column
   const allFilterTags = useMemo(() => {
     const set = new Set();
     rows.forEach((r) => (r.categories || []).forEach((c) => set.add(c)));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
+  // Apply filters + search (search includes both sets of tags + hidden)
   const filtered = useMemo(() => {
     let out = rows;
     if (selectedTags.length) {
@@ -309,7 +315,7 @@ export default function NounsDirectory() {
           r.title,
           r.description,
           ...(r.categories || []),
-          ...(r.additional || []),
+          ...(r.cardCategories || []),
           ...(r.hiddenTags || [])
         ].join(" | ").toLowerCase();
         return haystack.includes(q);
@@ -379,7 +385,7 @@ export default function NounsDirectory() {
             />
           </div>
 
-          {/* Desktop filters */}
+          {/* Desktop filters (Category only) */}
           <div className="mt-3 hidden grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 md:grid">
             {allFilterTags.map((t) => (
               <Pill
@@ -410,15 +416,15 @@ export default function NounsDirectory() {
                   key={r.key}
                   className="group flex h-full flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md"
                 >
-                  {/* Additional Categories at the TOP of card */}
-                  {!!(r.additional && r.additional.length) && (
+                  {/* Card Categories at the TOP of card */}
+                  {!!(r.cardCategories && r.cardCategories.length) && (
                     <div className="mb-2 flex flex-wrap gap-2">
-                      {r.additional.map((ac) => (
+                      {r.cardCategories.map((cc) => (
                         <span
-                          key={`${r.key}-ac-${ac}`}
+                          key={`${r.key}-cc-${cc}`}
                           className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800"
                         >
-                          {ac}
+                          {cc}
                         </span>
                       ))}
                     </div>
@@ -462,15 +468,6 @@ export default function NounsDirectory() {
 
                   {/* Description */}
                   <p className="mt-3 text-sm text-neutral-700">{r.description}</p>
-
-                  {/* Category tags under description */}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(r.categories || []).slice(0, 4).map((c) => (
-                      <span key={`${r.key}-cat-${c}`} className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800">
-                        {c}
-                      </span>
-                    ))}
-                  </div>
 
                   {/* Footer: Explore -> aligned right & at bottom */}
                   {r.link && (
