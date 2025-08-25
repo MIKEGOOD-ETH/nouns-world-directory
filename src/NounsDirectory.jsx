@@ -1,7 +1,6 @@
-// v29:
-// - Adds "Explore Projects" button next to Home (https://nouns.world/explore).
-// - Updates intro paragraph text with requested copy + bolding.
-// - Keeps previous logic: filters from Category; card chips under description from Card Categories; top chip removed.
+// v30:
+// - Hide "Explore Projects" button on mobile (visible at md and up).
+// - Everything else unchanged from v29.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -172,7 +171,7 @@ function Header() {
           </a>
           <a
             href="https://nouns.world/explore"
-            className="rounded-xl border border-white/30 px-3 py-2 text-sm text-white hover:bg-white/10"
+            className="hidden md:inline-flex rounded-xl border border-white/30 px-3 py-2 text-sm text-white hover:bg-white/10"
           >
             Explore Projects
           </a>
@@ -421,8 +420,6 @@ export default function NounsDirectory() {
                   key={r.key}
                   className="group flex h-full flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md"
                 >
-                  {/* (Top chip removed) */}
-
                   {/* Header: logo + Title */}
                   <div className="flex items-center gap-3">
                     <div className={`h-[30px] w-[30px] shrink-0 overflow-hidden rounded ${r.image ? "bg-neutral-100" : "bg-black"}`}>
@@ -484,7 +481,7 @@ export default function NounsDirectory() {
                         target={CONFIG.site.openLinksInNewTab ? "_blank" : undefined}
                         rel="noreferrer noopener"
                         className="inline-flex items-center gap-1 text-sm font-medium underline underline-offset-4"
-                      >
+                        >
                         Explore →
                       </a>
                     </div>
