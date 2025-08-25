@@ -1,8 +1,8 @@
-// v24:
-// - Filters use only the "Category" column.
-// - Chips on cards use "Card Categories" (formerly Additional Categories).
+// v26:
+// - TOP chip shows the MAIN category (first value from "Category").
+// - UNDER description shows chips from "Card Categories".
+// - Filters built from all values in "Category".
 // - Search covers title/description + Category + Card Categories + Hidden tags.
-// - Keeps your background art positions & 0.34 opacity; favicon + OG tags remain.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -14,8 +14,8 @@ const CONFIG = {
     title: ["Name (with url hyperlinked)", "Name", "Title"],
     link: ["URL", "Link"],
     description: ["Description", "About"],
-    categories: ["Category"], // filters only
-    cardCategories: ["Card Categories", "Card categories"],
+    categories: ["Category"], // filters + MAIN chip
+    cardCategories: ["Card Categories", "Card categories"], // chips under description
     hiddenTags: ["Hidden tags", "Hidden Tags", "Search tags", "Search Keywords"],
     logoUrl: ["Logo URL", "Logo url", "Image URL"],
     image: ["Logo", "Image"]
@@ -294,14 +294,14 @@ export default function NounsDirectory() {
     });
   }, []);
 
-  // Filters: only Category column
+  // Filters: built from Category
   const allFilterTags = useMemo(() => {
     const set = new Set();
     rows.forEach((r) => (r.categories || []).forEach((c) => set.add(c)));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  // Apply filters + search (search includes both sets of tags + hidden)
+  // Apply filters + search
   const filtered = useMemo(() => {
     let out = rows;
     if (selectedTags.length) {
@@ -385,7 +385,7 @@ export default function NounsDirectory() {
             />
           </div>
 
-          {/* Desktop filters (Category only) */}
+          {/* Desktop filters */}
           <div className="mt-3 hidden grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 md:grid">
             {allFilterTags.map((t) => (
               <Pill
@@ -416,17 +416,14 @@ export default function NounsDirectory() {
                   key={r.key}
                   className="group flex h-full flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md"
                 >
-                  {/* Card Categories at the TOP of card */}
-                  {!!(r.cardCategories && r.cardCategories.length) && (
+                  {/* MAIN category chip at the TOP of card (first Category value) */}
+                  {!!(r.categories && r.categories.length) && (
                     <div className="mb-2 flex flex-wrap gap-2">
-                      {r.cardCategories.map((cc) => (
-                        <span
-                          key={`${r.key}-cc-${cc}`}
-                          className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800"
-                        >
-                          {cc}
-                        </span>
-                      ))}
+                      <span
+                        className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800"
+                      >
+                        {r.categories[0]}
+                      </span>
                     </div>
                   )}
 
@@ -468,6 +465,20 @@ export default function NounsDirectory() {
 
                   {/* Description */}
                   <p className="mt-3 text-sm text-neutral-700">{r.description}</p>
+
+                  {/* Additional (Card Categories) chips UNDER description */}
+                  {!!(r.cardCategories && r.cardCategories.length) && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {r.cardCategories.map((cc) => (
+                        <span
+                          key={`${r.key}-cc-${cc}`}
+                          className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800"
+                        >
+                          {cc}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Footer: Explore -> aligned right & at bottom */}
                   {r.link && (
