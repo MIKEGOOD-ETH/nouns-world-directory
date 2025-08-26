@@ -1,13 +1,11 @@
-// v38 — CSV-only loader
-// - Fetches CSV via /api/sheet-proxy first (for CORS + CDN), then direct.
-// - Columns supported: Name/Title, URL/Link, Description, Category, Card Categories, Hidden tags, Logo URL, Logo
+// v39 — Local CSV only: fetches /resources.csv (no proxy), clearer errors.
+// If /resources.csv 404s, you’ll see a big message and the 1st 200 chars of the response.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 
 const CONFIG = {
   SHEET_CSV_URL: "/resources.csv",
-  PROXY_URL: "/api/sheet-proxy",
   COLUMNS: {
     title: ["Name (with url hyperlinked)", "Name", "Title"],
     link: ["URL", "Link"],
@@ -229,75 +227,55 @@ export default function NounsDirectory() {
   useEffect(() => {
     let aborted = false;
 
-    async function fetchText(url) {
-      const r = await fetch(url, { cache: "no-store" });
-      const t = await r.text();
-      return { ok: r.ok, text: t, status: r.status };
-    }
-
-    async function fetchViaProxy(url) {
-      return fetchText(`${CONFIG.PROXY_URL}?url=${encodeURIComponent(url)}`);
-    }
-
     async function load() {
       setLoading(true);
       setError("");
       setDebugSnippet("");
       setDebugFields([]);
 
-      let csvText = null;
-
-      // CSV via proxy first
       try {
-        const r1 = await fetchViaProxy(CONFIG.SHEET_CSV_URL);
-        if (r1.ok && !/^\s*</.test(r1.text)) {
-          csvText = r1.text;
-        } else if (r1.ok) {
-          setDebugSnippet(r1.text.slice(0,200));
+        const r = await fetch(CONFIG.SHEET_CSV_URL, { cache: "no-store" });
+        const text = await r.text();
+        if (!r.ok) {
+          setDebugSnippet(text.slice(0,200));
+          throw new Error("CSV fetch returned non-200 status: " + r.status);
         }
-      } catch {}
-
-      // Direct CSV fallback
-      if (!csvText) {
-        try {
-          const r2 = await fetchText(CONFIG.SHEET_CSV_URL);
-          if (r2.ok && !/^\s*</.test(r2.text)) csvText = r2.text;
-          else if (r2.ok) setDebugSnippet(r2.text.slice(0,200));
-        } catch {}
-      }
-
-      if (!csvText) {
-        setError("Could not fetch CSV data. Check the URL or try again.");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+        if (/^\s*</.test(text)) {
+          setDebugSnippet(text.slice(0,200));
+          throw new Error("Expected CSV but got HTML (are you sure /public/resources.csv exists in the deployed build?)");
+        }
+        const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
         const fields = parsed.meta?.fields || Object.keys(parsed.data?.[0] || {});
-        if (!fields.length) throw new Error("No header row detected.");
+        if (!fields.length) throw new Error("No header row detected in CSV.");
         if (aborted) return;
         setDebugFields(fields);
+
         const cols = resolveColumns(fields, CONFIG.COLUMNS);
+
         const data = (parsed.data || []).map((row, i) => {
           const titleRaw = (cols.title && row[cols.title]) || "";
           const link = (cols.link && row[cols.link]) || "";
           const title = String(titleRaw || (link ? new URL(link).hostname.replace(/^www\./,"") : `Untitled ${i+1}`)).trim();
           const description = String((cols.description && row[cols.description]) || "").trim();
+
           const categories = parseList(cols.categories ? row[cols.categories] : "");
           const cardCategories = parseList(cols.cardCategories ? row[cols.cardCategories] : "");
           const hidden = parseList(cols.hiddenTags ? row[cols.hiddenTags] : "");
+
           const logoUrl = String((cols.logoUrl && row[cols.logoUrl]) || "").trim();
           const legacyLogo = String((cols.image && row[cols.image]) || "").trim();
           const derivedLogo = title ? `/logos/${slug(title)}.png` : "";
           const image = logoUrl || legacyLogo || derivedLogo;
+
           return { key: `${slug(title)}-${i}`, title, link, description, categories, cardCategories, hiddenTags: hidden, image };
         });
+
         setRows(data);
         setLoading(false);
       } catch (e) {
-        setError("We fetched CSV but couldn’t parse it. Check columns and formatting.");
+        setError(e.message || "Could not load CSV.");
         setLoading(false);
+        console.error("CSV load error:", e);
       }
     }
 
@@ -408,6 +386,17 @@ export default function NounsDirectory() {
             </div>
           </div>
 
+          {error && (
+            <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              {error}
+              {debugSnippet && (
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-white p-2 text-xs text-neutral-700">
+{debugSnippet}
+                </pre>
+              )}
+            </div>
+          )}
+
           {loading ? (
             <div className="mt-6 text-sm text-neutral-600">Loading…</div>
           ) : (
@@ -458,7 +447,7 @@ export default function NounsDirectory() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       {r.cardCategories.map((cc) => (
                         <span
-                          key={`${{r.key}}-cc-${{cc}}`}
+                          key={`${r.key}-cc-${cc}`}
                           className="rounded-full border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-xs text-neutral-800"
                         >
                           {cc}
