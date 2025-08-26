@@ -1,26 +1,16 @@
-export const config = { runtime: "edge" };
-
-export default async function handler(request) {
-  const { searchParams } = new URL(request.url);
-  const target = searchParams.get("url");
-  if (!target) {
-    return new Response("Missing ?url= parameter", { status: 400 });
-  }
+// /api/sheet-proxy.js — tiny fetcher with CDN caching
+export default async function handler(req, res) {
   try {
-    const upstream = await fetch(target, {
-      headers: { "cache-control": "no-cache" }
-    });
-    if (!upstream.ok) {
-      return new Response(`Upstream error (${upstream.status})`, { status: 502 });
+    const url = req.query.url;
+    if (!url || typeof url !== "string") {
+      res.status(400).send("Missing url");
+      return;
     }
-    const body = await upstream.text();
-    return new Response(body, {
-      headers: {
-        "content-type": "text/csv; charset=utf-8",
-        "cache-control": "public, s-maxage=300, stale-while-revalidate=86400"
-      }
-    });
-  } catch {
-    return new Response("Fetch failed", { status: 500 });
+    const r = await fetch(url, { cache: "no-store" });
+    const text = await r.text();
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=86400");
+    res.status(r.status).send(text);
+  } catch (e) {
+    res.status(500).send(String(e || "proxy error"));
   }
 }
