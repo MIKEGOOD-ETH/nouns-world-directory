@@ -2,16 +2,6 @@
 
 Filterable directory pulling live data from a published Google Sheet.
 
-## v19
-- **Home link** now points to `https://nouns.world` (no `www`).
-- **Favicon** uses your site header gif: `/nouns-world-globe.gif`.
-- **Share image** added at `/resource-share.png` and Open Graph + Twitter tags included.
-- **Share button** in the header uses the Web Share API (falls back to copying the URL).
-
-### Where to put assets
-- Put your GIF favicon at the project root `public/nouns-world-globe.gif` (same file you use in the header).
-- The share image is already provided at `public/resource-share.png`. Replace it with your own if desired.
-
-### Deploy
-- Build: `npm run build`
-- Output: `dist`
+## How to add or edit a resource:
+- Entry / text: Each resource is a line in resources.csv. To add a new resource, simple add a new line and format it: Name,URL,Description,Category,Card Categories,Hidden tags,Logo URL
+- Entry Image: Add an image into the logos folder. Name the file the "Name" of the resource from resources.csv, replace spaces with "-".
